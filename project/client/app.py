@@ -1,5 +1,14 @@
 import sys
 import os
+import requests
+import asyncio
+from dotenv import load_dotenv
+from flask import Flask, request, abort, jsonify
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import openai
+import logging
 
 # 獲取項目根目錄並添加到 sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -7,25 +16,21 @@ sys.path.insert(0, project_root)
 
 # 從 assets 目錄導入 config.py 中的內容
 from assets.config import service, spreadsheet_id
-from dotenv import load_dotenv
-
-# 剩餘代碼保持不變
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import openai
+from server.notifications import notify_skipping_class, notify_gaming_addiction
+from server.light_control import turn_11_on, turn_11_off
 
 app = Flask(__name__)
 
 # 加載 .env 文件中的環境變量
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-line_bot_api = LineBotApi(channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# 剩餘代碼保持不變
+# 配置日誌記錄
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -34,13 +39,13 @@ def callback():
 
     # 獲取請求體
     body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    logger.info("Request body: " + body)
 
     # 驗證簽名
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        app.logger.error("Invalid signature. Please check your channel access token/channel secret.")
+        logger.error("Invalid signature. Please check your channel access token/channel secret.")
         abort(400)
 
     return 'OK'
@@ -48,18 +53,33 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
-    app.logger.info("Received message: " + user_message)
+    user_id = event.source.user_id  # 獲取用戶 ID
+    logger.info(f"Received message from user {user_id}: {user_message}")
 
     # 使用ChatGPT進行意圖判斷並生成回答
     try:
-        response_message = generate_response(user_message)
+        reply_message, action = generate_response(user_message)
+        logger.info(f"Generated response: {reply_message}, action: {action}")
+
+        # 檢查 reply_message 是否為空
+        if not reply_message.strip():
+            reply_message = "抱歉,我現在無法回答您的問題。"
+
     except Exception as e:
-        app.logger.error(f"Error in generating response: {str(e)}")
-        response_message = "抱歉，處理您的請求時發生錯誤。"
+        logger.error(f"Error in generating response: {str(e)}")
+        reply_message = "抱歉,處理您的請求時發生錯誤。"
+        action = None
 
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=response_message))
+        TextSendMessage(text=reply_message))
+
+    # 根據GPT的意圖判斷執行相應的動作
+    if action == "turn_on_light":
+        turn_11_on()
+
+    elif action == "turn_off_light":
+        turn_11_off()
 
 def generate_response(user_message):
     try:
@@ -68,43 +88,127 @@ def generate_response(user_message):
         result = sheet.values().get(spreadsheetId=spreadsheet_id, range="Sheet1").execute()
         values = result.get('values', [])
         if not values:
-            raise ValueError("No data found in the spreadsheet.")
+            raise ValueError("在試算表中沒有找到數據。")
         
         headers = values[0]  # 第一行作為標題
         latest_row = values[-1]  # 最後一行作為最新數據
         current_data = {headers[i]: latest_row[i] for i in range(len(headers))}
         
+        logger.info(f"當前數據: {current_data}")
+        
         # 生成數據意義說明
-        data_meaning = "以下是用戶今天的活動數據：\n"
+        data_meaning = "以下是使用者今天的活動數據：\n"
         for i, header in enumerate(headers):
             if i == 0:
-                data_meaning += f"{header} - {current_data[header]}, 表示記錄的日期；\n"
+                data_meaning += f"{header} - {current_data[header]},表示記錄的日期；\n"
             elif i == 1:
-                data_meaning += f"{header} - {current_data[header]}, 表示記錄的時間；\n"
+                data_meaning += f"{header} - {current_data[header]},表示記錄的時間；\n"
             elif i == 2:
-                data_meaning += f"{header} - {current_data[header]}, 表示小明今天每個小時忘記喝水的次數，也就是從今天凌晨00:00開始，到當下詢問時間，每一小時沒喝水的次數；\n"
+                data_meaning += f"{header} - {current_data[header]},表示小明今天忘記喝水的次數,次數代表,從凌晨00:00開始,每一小時沒喝水的次數,12次就代表有12小時沒有喝水；\n"
             elif i == 3:
-                data_meaning += f"{header} - {current_data[header]}, 表示燈的開關狀態，燈開著代表小明起床了，燈關閉代表小明在睡覺；\n"
+                data_meaning += f"{header} - {current_data[header]},表示燈的開關狀態,燈開著代表小明起床了,燈關閉代表小明在睡覺；\n"
             elif i == 4:
-                data_meaning += f"{header} - {current_data[header]}, 表示小明是否在家；\n"
+                data_meaning += f"{header} - {current_data[header]},表示小明是否在家；\n"
             elif i >= 5:
-                data_meaning += f"{header} - {current_data[header]}, 表示小明今天使用{header}應用程式的時長（秒）。\n"
+                data_meaning += f"{header} - {current_data[header]},表示小明今天玩{header}(遊戲)的時長(秒)。\n"
         
-        # 使用OpenAI生成回答
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "你是一個監督小明的話不多的管家。你只需要回答用戶想知道的答案，把你的推理過程和計算過程放在心裡，然後根據以下的數據簡短的回答用戶的問題："},
-                {"role": "system", "content": data_meaning},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=200,
-            temperature=0.7,
-        )
-        return response.choices[0].message['content'].strip()
+        logger.info(f"數據意義: {data_meaning}")
+        
+        # 生成小明的當前狀態
+        ming_status = f"小明目前的狀態：\n" \
+                      f"是否在家：{current_data['是否在家']}\n" \
+                      f"房間燈光：{'開著' if current_data['房間內燈光狀態'] == '1' else '關閉'}\n" \
+                      f"忘記喝水次數：{current_data['過長時間沒喝水']}\n" \
+                      f"遊戲時長：\n"
+        for header in headers[5:]:
+            ming_status += f"- {header}: {current_data[header]}秒\n"
+        
+        logger.info(f"小明的狀態: {ming_status}")
+        
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "你是一個監督小明的管家。請根據提供的數據,判斷使用者的意圖,並生成相應的回覆。如果使用者想要開燈或關燈,請在回覆中包含相應的操作指令。如果使用者詢問小明的狀態,請輸出完整的狀態資訊。"},
+                    {"role": "system", "content": data_meaning},
+                    {"role": "system", "content": ming_status},
+                    {"role": "user", "content": user_message}
+                ],
+                max_tokens=200,
+                temperature=0.7,
+            )
+        except openai.error.APIError as e:
+            raise Exception(f"OpenAI API 返回了一個 API 錯誤: {str(e)}")
+        except openai.error.APIConnectionError as e:
+            raise Exception(f"無法連接到 OpenAI API: {str(e)}")
+        except openai.error.RateLimitError as e:
+            raise Exception(f"OpenAI API 請求超過了速率限制: {str(e)}")
+        except Exception as e:
+            raise Exception(f"在 OpenAI API 請求期間發生了一個錯誤: {str(e)}")
+
+        reply_message = response.choices[0].message['content'].strip()
+
+        # 檢查 GPT 生成的回答,確定是否需要開關燈
+        action = None
+        if "action: turn_on_light" in reply_message:
+            if current_data['房間內燈光狀態'] == 'off':  # 如果燈已經關閉,則打開
+                action = "turn_on_light"
+                reply_message = "已經為您打開了燈。" + reply_message.replace("action: turn_on_light", "").strip()
+            else:  # 如果燈已經打開,則不執行任何操作
+                reply_message = "燈已經是打開的了。" + reply_message.replace("action: turn_on_light", "").strip()
+
+        elif "action: turn_off_light" in reply_message:
+            if current_data['房間內燈光狀態'] == 'on':  # 如果燈已經打開,則關閉
+                action = "turn_off_light"
+                reply_message = "已經為您關閉了燈。" + reply_message.replace("action: turn_off_light", "").strip()
+            else:  # 如果燈已經關閉,則不執行任何操作
+                reply_message = "燈已經是關閉的了。" + reply_message.replace("action: turn_off_light", "").strip()
+
+        return reply_message, action
+
     except Exception as e:
-        app.logger.error(f"Error in OpenAI API call: {str(e)}")
-        return "抱歉，處理您的請求時發生錯誤。"
+        logger.error(f"在 generate_response 中發生錯誤: {str(e)}")
+        return "抱歉,處理您的請求時發生錯誤。", None
+    
+async def check_ming_status():
+    while True:
+        try:
+            # 获取最新数据
+            sheet = service.spreadsheets()
+            result = sheet.values().get(spreadsheetId=spreadsheet_id, range="Sheet1").execute()
+            values = result.get('values', [])
+            if not values:
+                logger.info("No data found in the spreadsheet.")
+                continue
+            
+            headers = values[0]
+            latest_row = values[-1]
+            current_data = {headers[i]: latest_row[i] for i in range(len(headers))}
+            
+            logger.info(f"Current data: {current_data}")
+            
+            # 检测小明是否在不对的时间待在家里
+            current_hour = int(current_data["時間"].split(":")[0])
+            if current_hour in range(8, 19) and current_data["是否在家"] == "在家":
+                logger.info("Detected that Ming is at home during class time.")
+                notify_skipping_class()
+
+            # 检测小明是否电玩成瘾
+            total_gaming_time = sum(int(current_data[header]) for header in headers[5:] if current_data[header].isdigit())
+            if total_gaming_time > 3600:  # 超過1小時
+                logger.info(f"Detected that Ming has been gaming for {total_gaming_time} seconds.")
+                notify_gaming_addiction()
+
+        except Exception as e:
+            logger.error(f"Error in check_ming_status: {str(e)}")
+
+        await asyncio.sleep(3600)  # 每分鐘檢查一次,便於測試
+
+async def main():
+    loop = asyncio.get_event_loop()
+    check_ming_status_task = loop.create_task(check_ming_status())
+    flask_task = loop.run_in_executor(None, app.run)
+    await asyncio.gather(check_ming_status_task, flask_task)
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    asyncio.run(main())
