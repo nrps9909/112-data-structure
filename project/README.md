@@ -36,9 +36,9 @@
 
    在項目根目錄下創建一個 `.env` 文件，並添加以下內容：
    ```sh
-   LINE_CHANNEL_ACCESS_TOKEN=your_channel_access_token
-   LINE_CHANNEL_SECRET=your_channel_secret
-   OPENAI_API_KEY=your_openai_api_key
+   LINE_CHANNEL_ACCESS_TOKEN='your_channel_access_token'
+   LINE_CHANNEL_SECRET='your_channel_secret'
+   OPENAI_API_KEY='your_openai_api_key'
    SPREADSHEET_ID='your_Google_forum_ID'
    MONITOR_USER_ID='Line_User_ID(不是加好友的那個ID)'
    ```
