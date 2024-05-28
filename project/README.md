@@ -49,9 +49,11 @@
 6. **運行應用程序**：
 
    `cd client
+
    python app.py`
 
-   `cd server 
+   `cd server
+
    python server.py`
 
    打開CMD:
