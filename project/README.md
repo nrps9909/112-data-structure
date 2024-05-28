@@ -17,7 +17,7 @@
 
 ## 安裝
 
-```sh
+
 1. **克隆倉庫**：
 
    git clone https://github.com/yourusername/your-repo-name.git
@@ -56,7 +56,6 @@
 
    去(https://developers.line.biz/console/channel/2005448178/messaging-api)輸入Forwarding的網址 尾端加上/callback
 
-```
 
 ---
 
