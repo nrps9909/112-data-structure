@@ -20,41 +20,41 @@
 
 1. **克隆倉庫**：
 
-   git clone https://github.com/nrps9909/112-data-structure.git
-   cd nrps9909
+   `git clone https://github.com/nrps9909/112-data-structure.git`
+   `cd nrps9909`
 
 2. **創建並激活虛擬環境**：
 
-   python -m venv venv
-   source venv/bin/activate  # Windows 用戶使用 `venv\Scripts\activate`
+   `python -m venv venv`
+   `source venv/bin/activate`  # Windows 用戶使用 `venv\Scripts\activate`
 
 3. **安裝依賴項**：
 
-   pip install -r requirements.txt
+   `pip install -r requirements.txt`
 
 4. **設置環境變量**：
 
    在項目根目錄下創建一個 `.env` 文件，並添加以下內容：
-
+   ```sh
    LINE_CHANNEL_ACCESS_TOKEN=your_channel_access_token
    LINE_CHANNEL_SECRET=your_channel_secret
    OPENAI_API_KEY=your_openai_api_key
    SPREADSHEET_ID='your_Google_forum_ID'
    MONITOR_USER_ID='Line_User_ID(不是加好友的那個ID)'
-
+   ```
 5. **配置 Google Sheets API**：
 
    確保你在 `assets` 目錄中有一個包含你的服務帳號憑證的 `googleAPI.json` 文件（不提交到版本控制系統）。
 
 6. **運行應用程序**：
-   cd client 
-   python app.py
+   `cd client `
+   `python app.py`
 
-   cd server 
-   python server.py
+   `cd server `
+   `python server.py`
 
    打開CMD:
-   ngrok http 5000
+   `ngrok http 5000`
 
    去(https://developers.line.biz/console/channel/2005448178/messaging-api)輸入Forwarding的網址 尾端加上/callback
 
