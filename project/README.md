@@ -48,13 +48,13 @@
 
 6. **運行應用程序**：
 
-   `cd client
+   `cd client`
+   
+   `python app.py`
 
-   python app.py`
-
-   `cd server
-
-   python server.py`
+   `cd server`
+   
+   `python server.py`
 
    打開CMD:
    `ngrok http 5000`
