@@ -63,20 +63,35 @@
 ### 依賴庫及其許可
 
 **Flask**: BSD-3-Clause License
+
 **line-bot-sdk**: MIT License
+
 **openai**: MIT License
+
 **google-api-python-client**: Apache License 2.0
+
 **google-auth**: Apache License 2.0
+
 **google-auth-oauthlib**: Apache License 2.0
+
 **google-auth-httplib2**: Apache License 2.0
 **bleak**: MIT License
+
 **psutil**: BSD-3-Clause License
+
 **opencv-python**: MIT License
+
 **ultralytics**: GNU General Public License v3.0
+
 **supervision**: BSD-3-Clause License
+
 **numpy**: BSD-3-Clause License
+
 **python-dotenv**: BSD-3-Clause License
+
 **torch**: BSD-3-Clause License
+
 **torchaudio**: BSD-3-Clause License
+
 **torchvision**: BSD-3-Clause License
 

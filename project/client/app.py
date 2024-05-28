@@ -82,13 +82,13 @@ def generate_response(user_message):
             elif i == 1:
                 data_meaning += f"{header} - {current_data[header]}, 表示記錄的時間；\n"
             elif i == 2:
-                data_meaning += f"{header} - {current_data[header]}, 表示小明今天忘記喝水的次數，次數代表，從凌晨00:00開始，每一小時沒喝水的次數，12次就代表有12小時沒有喝水；\n"
+                data_meaning += f"{header} - {current_data[header]}, 表示小明今天每個小時忘記喝水的次數，也就是從今天凌晨00:00開始，到當下詢問時間，每一小時沒喝水的次數；\n"
             elif i == 3:
                 data_meaning += f"{header} - {current_data[header]}, 表示燈的開關狀態，燈開著代表小明起床了，燈關閉代表小明在睡覺；\n"
             elif i == 4:
                 data_meaning += f"{header} - {current_data[header]}, 表示小明是否在家；\n"
             elif i >= 5:
-                data_meaning += f"{header} - {current_data[header]}, 表示小明今天玩{header}(遊戲)的時長（秒）。\n"
+                data_meaning += f"{header} - {current_data[header]}, 表示小明今天使用{header}應用程式的時長（秒）。\n"
         
         # 使用OpenAI生成回答
         response = openai.ChatCompletion.create(
