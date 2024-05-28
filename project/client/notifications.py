@@ -1,5 +1,5 @@
 import os
-from linebot import LineBotApi, WebhookHandler
+from linebot import LineBotApi
 from linebot.models import TextSendMessage
 from dotenv import load_dotenv
 

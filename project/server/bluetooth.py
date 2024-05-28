@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from bleak import BleakScanner
 import globals
 

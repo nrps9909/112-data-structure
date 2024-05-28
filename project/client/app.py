@@ -1,6 +1,5 @@
 import sys
 import os
-import requests
 import asyncio
 from dotenv import load_dotenv
 from flask import Flask, request, abort, jsonify
@@ -16,8 +15,8 @@ sys.path.insert(0, project_root)
 
 # 從 assets 目錄導入 config.py 中的內容
 from assets.config import service, spreadsheet_id
-from server.notifications import notify_skipping_class, notify_gaming_addiction
-from server.light_control import turn_11_on, turn_11_off
+from client.notifications import notify_skipping_class, notify_gaming_addiction
+from client.light_control import turn_11_on, turn_11_off
 
 app = Flask(__name__)
 
@@ -189,7 +188,7 @@ async def check_ming_status():
             
             # 检测小明是否在不对的时间待在家里
             current_hour = int(current_data["時間"].split(":")[0])
-            if current_hour in range(8, 19) and current_data["是否在家"] == "在家":
+            if current_hour in range(8, 17) and current_data["是否在家"] == "在家":
                 logger.info("Detected that Ming is at home during class time.")
                 notify_skipping_class()
 
