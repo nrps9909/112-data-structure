@@ -47,6 +47,7 @@
    確保你在 `assets` 目錄中有一個包含你的服務帳號憑證的 `googleAPI.json` 文件（不提交到版本控制系統）。
 
 6. **運行應用程序**：
+   ```sh
    `cd client `
    `python app.py`
 
@@ -57,6 +58,7 @@
    `ngrok http 5000`
 
    去(https://developers.line.biz/console/channel/2005448178/messaging-api)輸入Forwarding的網址 尾端加上/callback
+   ```
 
 
 ---
