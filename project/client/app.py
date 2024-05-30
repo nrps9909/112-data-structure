@@ -15,8 +15,8 @@ sys.path.insert(0, project_root)
 
 # 從 assets 目錄導入 config.py 中的內容
 from assets.config import service, spreadsheet_id
-from client.notifications import notify_skipping_class, notify_gaming_addiction
-from client.light_control import turn_11_on, turn_11_off
+from client.notifications import notify_skipping_class, notify_gaming_addiction, notify_drink_water
+from client.light_control import turn_11_on, turn_11_off, turn_12_on, turn_12_off
 
 app = Flask(__name__)
 
@@ -79,6 +79,9 @@ def handle_message(event):
 
     elif action == "turn_off_light":
         turn_11_off()
+        
+    elif action == "notify_drink_water":
+        asyncio.run(notify_drink_water())
 
 def generate_response(user_message):
     try:
@@ -105,9 +108,9 @@ def generate_response(user_message):
             elif i == 2:
                 data_meaning += f"{header} - {current_data[header]},表示小明今天忘記喝水的次數,次數代表,從凌晨00:00開始,每一小時沒喝水的次數,12次就代表有12小時沒有喝水；\n"
             elif i == 3:
-                data_meaning += f"{header} - {current_data[header]},表示燈的開關狀態,燈開著代表小明起床了,燈關閉代表小明在睡覺；\n"
+                data_meaning += f"{header} - {current_data[header]},表示燈的開關狀態，燈開著代表小明起床了，燈關閉代表小明在睡覺；\n"
             elif i == 4:
-                data_meaning += f"{header} - {current_data[header]},表示小明是否在家；\n"
+                data_meaning += f"{header} - {current_data[header]},表示小明是否在家，如果在家就代表小明沒去上學，如果出門就代表小明去上家；\n"
             elif i >= 5:
                 data_meaning += f"{header} - {current_data[header]},表示小明今天玩{header}(遊戲)的時長(秒)。\n"
         
@@ -128,7 +131,7 @@ def generate_response(user_message):
             response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "你是一個監督小明的管家。請根據提供的數據,判斷使用者的意圖,並生成相應的回覆。如果使用者想要開燈或關燈,請在回覆中包含相應的操作指令。如果使用者詢問小明的狀態,請輸出完整的狀態資訊。"},
+                    {"role": "system", "content": "你是一個監督小明的管家。請根據提供的數據,判斷使用者的意圖,並生成相應的簡短回覆使用者的需求。如果使用者想要開燈或關燈,請在回覆中包含相應的操作指令。如果使用者詢問小明的狀態,請輸出完整的狀態資訊。如果你有需要推理或是思考的部分，請放在心裡，不需要輸出給使用者。如果使用者有任何要提醒小明喝水的訊息，請輸出action: notify_drink_water"},
                     {"role": "system", "content": data_meaning},
                     {"role": "system", "content": ming_status},
                     {"role": "user", "content": user_message}
@@ -147,28 +150,29 @@ def generate_response(user_message):
 
         reply_message = response.choices[0].message['content'].strip()
 
-        # 檢查 GPT 生成的回答,確定是否需要開關燈
+        # 檢查 GPT 生成的回答,確定是否需要開關燈或提醒喝水
         action = None
         if "action: turn_on_light" in reply_message:
-            if current_data['房間內燈光狀態'] == 'off':  # 如果燈已經關閉,則打開
-                action = "turn_on_light"
-                reply_message = "已經為您打開了燈。" + reply_message.replace("action: turn_on_light", "").strip()
-            else:  # 如果燈已經打開,則不執行任何操作
-                reply_message = "燈已經是打開的了。" + reply_message.replace("action: turn_on_light", "").strip()
-
+            action = "turn_on_light"
+            reply_message = "已經為您打開了燈。"
         elif "action: turn_off_light" in reply_message:
-            if current_data['房間內燈光狀態'] == 'on':  # 如果燈已經打開,則關閉
-                action = "turn_off_light"
-                reply_message = "已經為您關閉了燈。" + reply_message.replace("action: turn_off_light", "").strip()
-            else:  # 如果燈已經關閉,則不執行任何操作
-                reply_message = "燈已經是關閉的了。" + reply_message.replace("action: turn_off_light", "").strip()
+            action = "turn_off_light"
+            reply_message = "已經為您關閉了燈。"
+        elif "action: notify_drink_water" in reply_message or "提醒小明喝水" in user_message or "叫小明喝水" in user_message:
+            action = "notify_drink_water"
+            reply_message = "已經提醒小明喝水了。"
 
         return reply_message, action
 
     except Exception as e:
         logger.error(f"在 generate_response 中發生錯誤: {str(e)}")
         return "抱歉,處理您的請求時發生錯誤。", None
-    
+
+async def notify_drink_water():
+    turn_12_on()
+    await asyncio.sleep(5)
+    turn_12_off()
+
 async def check_ming_status():
     while True:
         try:
@@ -194,14 +198,19 @@ async def check_ming_status():
 
             # 检测小明是否电玩成瘾
             total_gaming_time = sum(int(current_data[header]) for header in headers[5:] if current_data[header].isdigit())
-            if total_gaming_time > 3600:  # 超過1小時
+            if total_gaming_time > 3000:  # 超過1小時
                 logger.info(f"Detected that Ming has been gaming for {total_gaming_time} seconds.")
                 notify_gaming_addiction()
+                
+            drink_water_time = int(current_data["過長時間沒喝水"][0])
+            if drink_water_time > 100:  # 超過1小時
+                logger.info(f"Detected that Ming has not been drinking for {drink_water_time} times.")
+                notify_drink_water()
 
         except Exception as e:
             logger.error(f"Error in check_ming_status: {str(e)}")
 
-        await asyncio.sleep(3600)  # 每分鐘檢查一次,便於測試
+        await asyncio.sleep(10)  # 每分鐘檢查一次,便於測試
 
 async def main():
     loop = asyncio.get_event_loop()

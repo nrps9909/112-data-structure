@@ -16,3 +16,7 @@ def notify_skipping_class():
 def notify_gaming_addiction():
         message = "小明電腦玩超過時間,可能電玩成癮了！"
         line_bot_api.push_message(monitor_user_id, TextSendMessage(text=message))
+        
+def notify_drink_water():
+        message = "小明太久沒喝水了，可能會導致腎結石"
+        line_bot_api.push_message(monitor_user_id, TextSendMessage(text=message))
