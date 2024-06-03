@@ -112,7 +112,7 @@ def generate_response(user_message):
             elif i == 4:
                 data_meaning += f"{header} - {current_data[header]},表示小明是否在家，如果在家就代表小明沒去上學，如果出門就代表小明去上家；\n"
             elif i >= 5:
-                data_meaning += f"{header} - {current_data[header]},表示小明今天玩{header}(遊戲)的時長(秒)。\n"
+                data_meaning += f"{header} - {current_data[header]},表示小明今天玩{header}的時長(秒)，並且所有APP都是遊戲。\n"
         
         logger.info(f"數據意義: {data_meaning}")
         
@@ -198,12 +198,12 @@ async def check_ming_status():
 
             # 检测小明是否电玩成瘾
             total_gaming_time = sum(int(current_data[header]) for header in headers[5:] if current_data[header].isdigit())
-            if total_gaming_time > 3000:  # 超過1小時
+            if total_gaming_time > 15:  # 超過1小時
                 logger.info(f"Detected that Ming has been gaming for {total_gaming_time} seconds.")
                 notify_gaming_addiction()
                 
             drink_water_time = int(current_data["過長時間沒喝水"][0])
-            if drink_water_time > 100:  # 超過1小時
+            if drink_water_time > 20:  # 超過1小時
                 logger.info(f"Detected that Ming has not been drinking for {drink_water_time} times.")
                 notify_drink_water()
 
