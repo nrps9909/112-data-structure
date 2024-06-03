@@ -210,7 +210,7 @@ async def check_ming_status():
         except Exception as e:
             logger.error(f"Error in check_ming_status: {str(e)}")
 
-        await asyncio.sleep(10)  # 每分鐘檢查一次,便於測試
+        await asyncio.sleep(40)  # 每分鐘檢查一次,便於測試
 
 async def main():
     loop = asyncio.get_event_loop()
