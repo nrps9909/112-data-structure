@@ -2,7 +2,7 @@ import sys
 import os
 import asyncio
 from dotenv import load_dotenv
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
@@ -131,7 +131,7 @@ def generate_response(user_message):
             response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "你是一個監督小明的管家。請根據提供的數據,判斷使用者的意圖,並生成相應的簡短回覆使用者的需求。如果使用者想要開燈或關燈,請在回覆中包含相應的操作指令。如果使用者詢問小明的狀態,請輸出完整的狀態資訊。如果你有需要推理或是思考的部分，請放在心裡，不需要輸出給使用者。如果使用者有任何要提醒小明喝水的訊息，請輸出action: notify_drink_water"},
+                    {"role": "system", "content": "你是一個監督小明的管家，你說話果斷肯定，不要使用可能、或許、也許等模糊的詞彙。請根據提供的數據,判斷使用者的意圖,並生成相應的簡短回覆使用者的需求。如果使用者想要開燈或關燈,請在回覆中包含相應的操作指令。如果使用者詢問小明的狀態,請輸出完整的狀態資訊。如果你有需要推理或是思考的部分，請放在心裡，不需要輸出給使用者。如果使用者有任何要提醒小明喝水的訊息，請輸出action: notify_drink_water"},
                     {"role": "system", "content": data_meaning},
                     {"role": "system", "content": ming_status},
                     {"role": "user", "content": user_message}
@@ -139,13 +139,17 @@ def generate_response(user_message):
                 max_tokens=200,
                 temperature=0.7,
             )
-        except openai.error.APIError as e:
+        except openai.error.OpenAIError as e:
+            logger.error(f"OpenAI API returned an API error: {str(e)}")
             raise Exception(f"OpenAI API 返回了一個 API 錯誤: {str(e)}")
         except openai.error.APIConnectionError as e:
+            logger.error(f"Failed to connect to OpenAI API: {str(e)}")
             raise Exception(f"無法連接到 OpenAI API: {str(e)}")
         except openai.error.RateLimitError as e:
+            logger.error(f"OpenAI API request exceeded rate limit: {str(e)}")
             raise Exception(f"OpenAI API 請求超過了速率限制: {str(e)}")
         except Exception as e:
+            logger.error(f"An error occurred during OpenAI API request: {str(e)}")
             raise Exception(f"在 OpenAI API 請求期間發生了一個錯誤: {str(e)}")
 
         reply_message = response.choices[0].message['content'].strip()
